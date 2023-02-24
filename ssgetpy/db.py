@@ -90,9 +90,7 @@ class MatrixDB:
         self.insert(values)
 
     def dump(self):
-        return self.conn.execute(
-            "SELECT * from %s" % self.matrix_table
-        ).fetchall()
+        return self.conn.execute('SELECT * FROM ?', (self.matrix_table,)).fetchall()
 
     @staticmethod
     def _is_constraint(field, value):
@@ -134,44 +132,29 @@ class MatrixDB:
         is2d3d=None,
         isspd=None,
         kind=None,
-        limit=10,
+        limit=None,
     ):
 
-        querystring = "SELECT * FROM %s" % self.matrix_table
+        querystring = f'SELECT * FROM {self.matrix_table}'
 
-        mid_constraint = MatrixDB._is_constraint("id", matid)
-        grp_constraint = MatrixDB._is_constraint("matrixgroup", group)
-        nam_constraint = MatrixDB._like_constraint("name", name)
-        row_constraint = MatrixDB._sz_constraint("rows", rowbounds)
-        col_constraint = MatrixDB._sz_constraint("cols", colbounds)
-        nnz_constraint = MatrixDB._sz_constraint("nnz", nzbounds)
-        dty_constraint = MatrixDB._is_constraint("dtype", dtype)
-        geo_constraint = MatrixDB._bool_constraint("is2d3d", is2d3d)
-        spd_constraint = MatrixDB._bool_constraint("isspd", isspd)
-        knd_constraint = MatrixDB._like_constraint("kind", kind)
-
-        constraints = list(
-            filter(
-                lambda x: x is not None,
-                (
-                    mid_constraint,
-                    grp_constraint,
-                    nam_constraint,
-                    row_constraint,
-                    col_constraint,
-                    nnz_constraint,
-                    dty_constraint,
-                    geo_constraint,
-                    spd_constraint,
-                    knd_constraint,
-                ),
-            )
-        )
+        constraints = [
+            MatrixDB._is_constraint("id", matid),
+            MatrixDB._is_constraint("matrixgroup", group),
+            MatrixDB._like_constraint("name", name),
+            MatrixDB._sz_constraint("rows", rowbounds),
+            MatrixDB._sz_constraint("cols", colbounds),
+            MatrixDB._sz_constraint("nnz", nzbounds),
+            MatrixDB._is_constraint("dtype", dtype),
+            MatrixDB._bool_constraint("is2d3d", is2d3d),
+            MatrixDB._bool_constraint("isspd", isspd),
+            MatrixDB._like_constraint("kind", kind)
+        ]
+        constraints = list(filter(lambda x: x is not None, constraints))
 
         if any(constraints):
-            querystring += " WHERE " + " AND ".join(constraints)
-
-        querystring += " LIMIT (%s)" % limit
+            querystring += f' WHERE {" AND ".join(constraints)}'
+        if limit is not None:
+            querystring += f' LIMIT ({limit})'
 
         logger.debug(querystring)
 
